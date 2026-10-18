@@ -190,3 +190,14 @@ Tooling: Python 3.12, FastAPI, PyJWT, bcrypt, sqlite3, httpx, pytest, Bandit, pi
 | Three catalog vulnerabilities and one composition vulnerability planned | Pass |
 
 **Decision:** Requirements gate passed. Implementation may start.
+
+## 11. Revisions during implementation
+
+| Planned | Implemented | Reason |
+|---|---|---|
+| One `internal` network | `gateway-car`, `gateway-report`, `report-car` + IP binding | report-service could otherwise reach the gateway (least privilege, T14) |
+| `GET /cars/{id}/image` | `GET /cars/{car_id}/images/{image_id}` | Server-generated image IDs |
+| `POST /reports` | `POST /cars/{car_id}/reports` | Reports belong to a car |
+| Body owner ignored (T5) | Body owner rejected with 422 | Stricter |
+| Token claims `sub`, `role` | Also `iss`, `iat`, `jti`, `token_use` | Prevent token-type confusion |
+| Gateway does not check ownership in FR6 | Gateway checks car before issuing job token | Defence in depth |![alt text](image.png)
