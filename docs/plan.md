@@ -136,8 +136,7 @@ Binding: service = `aud`, resource = `sub` + `car_id`, action = `scope`, validit
 | T13 | E | TB1 | Seller calls dealer endpoint | A8 | Role + scope check | Impl | Seller cannot create valuation | Test |
 | T14 | E | TB4 | Package reaches a database | A7 | No DB network for report-service | Design | Report container cannot reach car-db | Test |
 | T15 | I | TB1 | Path traversal on images | A7 | Canonicalise + check path | Impl | `../` rejected | Test |
-| T16 | T | TB1 | SQL injection in filter | A7 | Parameterised queries | Impl | Payload returns own cars only; SAST | Build, Test |
-
+| T16 detected by SAST | Not detected by Bandit (fragment f-string) | Discovered when planting V3 |
 ---
 
 ## 7. Secure design principles
