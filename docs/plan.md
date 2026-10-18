@@ -200,3 +200,4 @@ Tooling: Python 3.12, FastAPI, PyJWT, bcrypt, sqlite3, httpx, pytest, Bandit, pi
 | Body owner ignored (T5) | Body owner rejected with 422 | Stricter |
 | Token claims `sub`, `role` | Also `iss`, `iat`, `jti`, `token_use` | Prevent token-type confusion |
 | Gateway does not check ownership in FR6 | Gateway checks car before issuing job token | Defence in depth |![alt text](image.png)
+| SHA-256 manifest for carreport (T6) | Not implemented | Optional supply chain part skipped; residual risk |
