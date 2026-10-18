@@ -9,3 +9,4 @@ report-service/wheels/
 build/
 *.egg-info/
 secrets/
+reports/
