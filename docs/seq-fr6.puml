@@ -1,0 +1,35 @@
+@startuml seq-fr6
+autonumber
+skinparam responseMessageBelowArrow true
+actor Alice as A
+participant "auth-gateway" as G
+participant "report-service" as R
+participant "car-service" as C
+participant "carreport" as P
+
+A -> G : POST /cars/1/reports\nuser token
+G -> G : verify user token (RS256, exp,\naud=auth-gateway), role seller allowed
+G -> C : GET /cars/1\nservice token (aud=car-service,\nscope=cars:read, 60 s)
+C -> C : verify token and scope\nowner(car 1) == alice
+C --> G : 200 car
+G -> G : issue job token\n(sub=alice, car_id=1, 120 s)
+G -> R : POST /jobs {car_id=1, job token}\nservice token (aud=report-service,\nscope=jobs:create)
+R -> R : verify service token;\njob token: same sub, same car,\nexact scopes
+R -> C : GET /cars/1 (job token)
+C -> C : car_id matches, owner == sub
+C --> R : 200 car
+R -> C : GET /cars/1/valuations (job token)
+C --> R : 200 valuations
+R -> P : format_report(car, valuation)
+P --> R : report text
+R -> C : POST /cars/1/reports (job token)
+C --> R : 201 report id
+R --> G : 201
+G --> A : 201 report id
+== later ==
+A -> G : GET /reports/{id}\nuser token
+G -> C : GET /reports/{id}\nservice token (scope=reports:read)
+C -> C : owner(report) == alice
+C --> G : 200 report
+G --> A : 200 report
+@enduml

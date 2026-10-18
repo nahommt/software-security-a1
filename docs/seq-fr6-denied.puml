@@ -1,0 +1,25 @@
+@startuml seq-fr6-denied
+autonumber
+skinparam responseMessageBelowArrow true
+actor Alice as A
+participant "auth-gateway" as G
+participant "report-service" as R
+participant "car-service" as C
+
+A -> G : POST /cars/2/reports\nuser token (Bob owns car 2)
+G -> G : verify user token,\nrole seller allowed
+G -> C : GET /cars/2\nservice token (sub=alice, scope=cars:read)
+C -> C : owner(car 2) == bob ≠ alice
+C --> G : 404
+G --> A : 404
+note over G, R
+  No job token is issued and
+  the report service is never contacted.
+end note
+note over C
+  Second layer: even if the gateway check
+  were missing, the car service would reject
+  a job token whose sub does not own the car
+  (removing both checks gave V4).
+end note
+@enduml
