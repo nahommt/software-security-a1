@@ -20,6 +20,7 @@ def main():
 
     store = UserStore(settings.db_path)
     store.init_schema()
+    store.remove_all_except(SEED_ROLES)
     for username, role in SEED_ROLES.items():
         store.upsert(username, passwords[username], role)
         print(f"seeded {username} ({role})")

@@ -74,11 +74,16 @@ TODO: check the wheel's SHA-256 hash against the approved manifest.
 
 ### Seed
 
-Create the accounts `alice`, `bob` (seller) and `dealer` (dealer) with bcrypt-hashed passwords from `secrets/seed_users.json`:
+Seed everything with one command:
 
 ```bash
-docker compose --profile seed run --rm auth-seed
+./scripts/seed.sh
 ```
+
+The script generates `secrets/` if it is missing, then runs two seed jobs without network access. The seed resets existing data, so the result is the same on every run.
+
+- `auth-seed` creates exactly `alice`, `bob` (seller) and `dealer` (dealer). Passwords come from the git-ignored `secrets/seed_users.json` and are stored as bcrypt hashes.
+- `car-seed` creates one synthetic car per seller (alice: Volvo V70, bob: Audi A4), each with one PNG image and one valuation by `dealer`.
 
 ### Run
 

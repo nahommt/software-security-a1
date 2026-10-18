@@ -28,6 +28,11 @@ class UserStore:
         with self._connect() as conn:
             conn.execute(SCHEMA)
 
+    def remove_all_except(self, usernames):
+        placeholders = ", ".join("?" for _ in usernames)
+        with self._connect() as conn:
+            conn.execute(f"DELETE FROM users WHERE username NOT IN ({placeholders})", list(usernames))
+
     def upsert(self, username, password, role):
         if role not in ROLES:
             raise ValueError(f"unknown role: {role}")

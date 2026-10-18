@@ -74,6 +74,22 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  car-seed:
+    build:
+      context: ./car-service
+      target: runtime
+    profiles:
+      - seed
+    command: ["python", "-m", "app.seed"]
+    network_mode: none
+    volumes:
+      - car-data:/data
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   car-service-test:
     build:
       context: ./car-service

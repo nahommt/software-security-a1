@@ -52,6 +52,13 @@ class CarStore:
         with self._connect() as conn:
             conn.executescript(SCHEMA)
 
+    def reset(self):
+        with self._connect() as conn:
+            conn.executescript(
+                "DELETE FROM reports; DELETE FROM valuations; DELETE FROM images; DELETE FROM cars;"
+                "DELETE FROM sqlite_sequence;"
+            )
+
     def _car_dict(self, conn, row):
         car = dict(row)
         car["images"] = [
@@ -101,11 +108,11 @@ class CarStore:
             ).fetchone()
             return None if row is None else dict(row)
 
-    def create_valuation(self, car_id, dealer, price, comment):
+    def create_valuation(self, car_id, dealer, price, comment, timestamp=None):
         with self._connect() as conn:
             cursor = conn.execute(
                 "INSERT INTO valuations (car_id, dealer, price, comment, timestamp) VALUES (?, ?, ?, ?, ?)",
-                (car_id, dealer, price, comment, _now()),
+                (car_id, dealer, price, comment, timestamp or _now()),
             )
             return dict(conn.execute("SELECT * FROM valuations WHERE id = ?", (cursor.lastrowid,)).fetchone())
 
