@@ -201,7 +201,13 @@ report-service calls car-service `GET /cars/{car_id}`, `GET /cars/{car_id}/valua
 
 ### Test
 
-Run the tests in containers without network access:
+Run all three services' test suites with one command. Each suite runs in its own container without network access, and the script exits non-zero if any suite fails:
+
+```bash
+./scripts/test.sh
+```
+
+To run a single suite:
 
 ```bash
 docker compose --profile test run --rm auth-gateway-test
@@ -214,8 +220,6 @@ docker compose --profile test run --rm car-service-test
 ```bash
 docker compose --profile test run --rm report-service-test
 ```
-
-TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, section 6).
 
 ### Stop
 
