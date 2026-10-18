@@ -47,3 +47,20 @@ HTTP 404: Not found
 
 Result: alice (seller) receives bob's car 2 including owner, description and image id.
 cars list and valuations list still enforce ownership, so only GET /cars/{car_id} is affected.
+
+================================================================================
+After fix (SKOLE-29)
+Date: 2026-10-18T21:34:42Z
+Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
+
+get_car no longer has the seller bypass; it calls authorized_car for every role,
+which denies when a seller does not own the car.
+
+$ python3 cli/carcli.py cars show 2    # alice, bob's car
+HTTP 404: Not found
+
+Result: alice can no longer read bob's car. A foreign car is indistinguishable
+from a missing one (both 404). The matching tests pass again:
+  - car-service tests/test_user_access.py::test_seller_cannot_read_other_sellers_car
+  - car-service tests/test_user_access.py::test_missing_car_and_foreign_car_look_the_same
+  - car-service tests/test_seed.py::test_alice_cannot_reach_bobs_seeded_data

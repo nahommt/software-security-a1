@@ -25,3 +25,18 @@ $ bandit -r car-service/app
  A control test confirmed Bandit flags B608 when the SELECT itself is in the f-string.
 
 Result: alice (seller) receives bob's car 2, which the owner filter should have hidden.
+
+================================================================================
+After fix (SKOLE-29)
+Date: 2026-10-18T21:34:42Z
+Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
+
+The make filter is a parameterised query again ("AND make = ?" with a bound
+parameter), so the payload is treated as a literal value, not SQL.
+
+$ python3 cli/carcli.py cars list --make "' OR '1'='1"    # as alice
+rows: 0 owners: []
+
+Result: the injection returns no rows (no car has that literal make), and bob's
+car is not exposed. The matching test passes again:
+  - car-service tests/test_user_access.py::test_sql_injection_in_make_filter_returns_no_foreign_cars

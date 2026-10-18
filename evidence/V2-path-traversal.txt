@@ -24,3 +24,24 @@ In-container sha256 of the real database for comparison:
 The two hashes match: alice downloaded car-service's database file verbatim.
 Note: ../../car.db returns 502 because /data/images/../../car.db does not exist; the
 working payload is a single ../ (image store is one level below /data).
+
+================================================================================
+After fix (SKOLE-29)
+Date: 2026-10-18T21:34:42Z
+Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
+
+The image id is validated again: the route is {image_id} (not {image_id:path})
+and the id must match ^[0-9a-f]{32}$ at both the gateway and car-service. The file
+is served only after a successful database lookup, by its stored id.
+
+$ curl --path-as-is "http://localhost:8000/cars/1/images/..%2Fcar.db" -H "Authorization: Bearer <alice token>"
+HTTP 404  (gateway rejects the id; car-service is not reached)
+
+$ curl --path-as-is "http://localhost:8000/cars/1/images/..%2F..%2Fcar.db" -H "Authorization: Bearer <alice token>"
+HTTP 404
+
+Result: the traversal payload no longer reaches the filesystem; the database file
+cannot be downloaded. The matching tests pass again:
+  - car-service tests/test_user_access.py::test_image_id_must_be_server_generated_format
+  - car-service tests/test_user_access.py::test_image_cannot_be_read_through_another_car
+  - auth-gateway tests/test_forwarding.py::test_invalid_image_id_rejected_at_gateway
