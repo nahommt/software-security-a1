@@ -1,0 +1,29 @@
+services:
+  auth-gateway:
+    build: ./auth-gateway
+    ports:
+      - "8000:8000"
+    networks:
+      - public
+      - internal
+      - auth-db
+
+  car-service:
+    build: ./car-service
+    networks:
+      - internal
+      - car-db
+
+  report-service:
+    build: ./report-service
+    networks:
+      - internal
+
+networks:
+  public:
+  internal:
+    internal: true
+  auth-db:
+    internal: true
+  car-db:
+    internal: true
