@@ -56,10 +56,38 @@ services:
       - no-new-privileges:true
 
   car-service:
-    build: ./car-service
+    build:
+      context: ./car-service
+      target: runtime
     networks:
       - internal
       - car-db
+    secrets:
+      - jwt_public_key
+    volumes:
+      - car-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  car-service-test:
+    build:
+      context: ./car-service
+      target: test
+    profiles:
+      - test
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   report-service:
     build: ./report-service
@@ -77,6 +105,7 @@ networks:
 
 volumes:
   auth-data:
+  car-data:
 
 secrets:
   jwt_private_key:

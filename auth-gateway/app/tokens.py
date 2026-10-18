@@ -10,6 +10,10 @@ ALGORITHM = "RS256"
 ISSUER = "auth-gateway"
 USER_TOKEN_AUDIENCE = "auth-gateway"
 USER_TOKEN_LIFETIME = 15 * 60
+SERVICE_TOKEN_LIFETIME = 60
+JOB_TOKEN_LIFETIME = 120
+CAR_SERVICE_AUDIENCE = "car-service"
+SERVICE_AUDIENCES = frozenset({CAR_SERVICE_AUDIENCE, "report-service"})
 MIN_KEY_SIZE = 2048
 REQUIRED_USER_CLAIMS = ["iss", "sub", "aud", "role", "iat", "exp", "jti"]
 
@@ -58,6 +62,45 @@ class TokenService:
             "jti": uuid.uuid4().hex,
         }
         return jwt.encode(claims, self._private_key, algorithm=ALGORITHM)
+
+    def _issue(self, audience, lifetime, claims):
+        now = int(self._clock())
+        claims = {
+            "iss": ISSUER,
+            "aud": audience,
+            "iat": now,
+            "exp": now + lifetime,
+            "jti": uuid.uuid4().hex,
+            **claims,
+        }
+        return jwt.encode(claims, self._private_key, algorithm=ALGORITHM)
+
+    def issue_service_token(self, principal, audience, scopes):
+        if audience not in SERVICE_AUDIENCES:
+            raise ValueError(f"unknown service audience: {audience}")
+        return self._issue(
+            audience,
+            SERVICE_TOKEN_LIFETIME,
+            {
+                "token_use": "service",
+                "sub": principal.username,
+                "role": principal.role,
+                "scope": " ".join(scopes),
+            },
+        )
+
+    def issue_job_token(self, owner, car_id, job_id, scopes):
+        return self._issue(
+            CAR_SERVICE_AUDIENCE,
+            JOB_TOKEN_LIFETIME,
+            {
+                "token_use": "job",
+                "sub": owner,
+                "car_id": car_id,
+                "job_id": job_id,
+                "scope": " ".join(scopes),
+            },
+        )
 
     def verify_user_token(self, token):
         try:

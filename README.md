@@ -48,6 +48,10 @@ Each service pins its dependencies with hashes in `requirements.txt` (and `requi
 ./scripts/lock_dependencies.sh auth-gateway
 ```
 
+```bash
+./scripts/lock_dependencies.sh car-service
+```
+
 ### Build
 
 Build the `carreport` wheel first. The script builds it in a `python:3.12-slim` container and writes it to `report-service/wheels/`:
@@ -78,7 +82,7 @@ docker compose --profile seed run --rm auth-seed
 docker compose up
 ```
 
-The gateway is published on `http://localhost:8000`. No other service is exposed.
+The gateway is published on `http://localhost:8000`. No other service is exposed. `car-service` is only reachable on the `internal` network and accepts only service tokens and job tokens with `aud=car-service`.
 
 Log in and call a protected endpoint:
 
@@ -92,10 +96,14 @@ curl -s localhost:8000/me -H 'Authorization: Bearer <access_token>'
 
 ### Test
 
-Run the `auth-gateway` tests in a container without network access:
+Run the tests in containers without network access:
 
 ```bash
 docker compose --profile test run --rm auth-gateway-test
+```
+
+```bash
+docker compose --profile test run --rm car-service-test
 ```
 
 TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, section 6).
