@@ -2,30 +2,65 @@
 
 The pipeline is defined in the repository's [Jenkinsfile](../Jenkinsfile). It runs on every push and pull request and has these stages: Checkout, Secret scan (gitleaks), Build, SAST (bandit), Dependency scan (pip-audit), Tests, Integration (network isolation check). All reports are archived as build artifacts, also when a stage is unstable. There are no gate rules yet; failing scans mark the stage UNSTABLE but do not fail the build (that is SKOLE-28).
 
-## 1. Start Jenkins in Docker
+## 1. Start Jenkins in Docker (macOS, Docker Desktop, Apple Silicon)
 
-The pipeline itself runs `docker` commands, so Jenkins needs access to a Docker daemon. The simplest local setup mounts the host Docker socket into the Jenkins container.
+The pipeline runs `docker` commands, so Jenkins needs a Docker client inside the container plus access to the host Docker daemon. The stock `jenkins/jenkins` image has no Docker client, and installing one with `apt` needs outbound HTTP to `deb.debian.org`, which some networks block. Instead, a small custom image bakes in a pinned static Docker CLI and the Compose plugin, downloaded over HTTPS. This also means the binaries survive when the container is recreated.
+
+### The custom image
+
+The image is defined in [jenkins/Dockerfile](../jenkins/Dockerfile). It:
+
+- starts from `jenkins/jenkins:lts-jdk17`;
+- downloads the static Docker CLI from `download.docker.com` and the Compose plugin from GitHub releases, both pinned (`DOCKER_VERSION`, `COMPOSE_VERSION`), using the container's own architecture (`uname -m`, i.e. `aarch64` on Apple Silicon) — not the host's;
+- uses an entrypoint ([jenkins/entrypoint.sh](../jenkins/entrypoint.sh)) that, at start-up, reads the group of the mounted Docker socket **inside the container** and gives the `jenkins` user access to it, then runs Jenkins as `jenkins`. No host group ID is read.
+
+Build it:
 
 ```bash
-docker network create jenkins || true
+docker build -t car-valuation-jenkins:local jenkins/
+```
+
+### The Docker socket on Docker Desktop
+
+Docker Desktop on macOS does not create `/var/run/docker.sock` on the host. The real socket is under your home directory. Find it:
+
+```bash
+docker context inspect --format '{{.Endpoints.docker.Host}}'
+```
+
+It prints something like `unix:///Users/<you>/.docker/run/docker.sock`. Mount that path into the container at `/var/run/docker.sock`. The command below uses `$HOME/.docker/run/docker.sock`, which is the default.
+
+### Run the container
+
+```bash
+docker volume create jenkins_home
 ```
 
 ```bash
 docker run -d --name jenkins \
   -p 8080:8080 -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  --group-add "$(stat -f '%g' /var/run/docker.sock)" \
-  jenkins/jenkins:lts-jdk17
+  -v "$HOME/.docker/run/docker.sock:/var/run/docker.sock" \
+  car-valuation-jenkins:local
 ```
 
-The Jenkins image has no Docker client. Install it once inside the container:
+No `--group-add` is needed: the entrypoint fixes socket access from inside the container. On Docker Desktop the mounted socket is owned by `root:root` (mode 660), so the entrypoint adds `jenkins` to the `root` group; on a daemon where the socket has a non-zero group, it creates a matching `dockerhost` group instead.
+
+### Verify Docker works inside the container
 
 ```bash
-docker exec -u root jenkins bash -c "apt-get update && apt-get install -y docker.io docker-compose-plugin"
+docker exec jenkins docker ps
 ```
 
-Get the first-run admin password and open Jenkins:
+```bash
+docker exec jenkins docker compose version
+```
+
+The first lists running containers (you will see `jenkins` itself); the second prints `Docker Compose version v2.29.7`. Both were verified working with this setup.
+
+### Finish first-run setup
+
+Get the admin password and open Jenkins:
 
 ```bash
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
