@@ -56,14 +56,16 @@ See `docs/architecture.png` (source: `docs/architecture.drawio`).
 | `report-service` | Generate one report per job | Nothing (stateless) | gateway |
 | `carreport` | Helper package (wheel), formats report | Nothing | Imported by report-service |
 
-**Networks:** `public` (gateway), `internal` (all three services), `auth-db` (gateway), `car-db` (car-service). report-service has no database network.
+**Networks:** `public` (gateway), `gateway-car` (gateway ↔ car-service), `gateway-report` (gateway ↔ report-service), `report-car` (report-service → car-service). All but `public` are internal. gateway and report-service are each bound to a single network IP so report-service cannot reach the gateway.
+
+**Databases:** each service keeps its state as a SQLite file in its own Docker volume (`auth-data:/data/auth.db` for gateway, `car-data:/data/car.db` and `/data/images` for car-service). There is no separate database container and therefore no database network. report-service is stateless and has no volume.
 
 **Trust boundaries:**
 - TB1 Internet → gateway
 - TB2 gateway → internal services
 - TB3 report-service → car-service
 - TB4 report-service → carreport
-- TB5 services → databases
+- TB5 service → its own SQLite volume
 
 ---
 
@@ -201,3 +203,4 @@ Tooling: Python 3.12, FastAPI, PyJWT, bcrypt, sqlite3, httpx, pytest, Bandit, pi
 | Token claims `sub`, `role` | Also `iss`, `iat`, `jti`, `token_use` | Prevent token-type confusion |
 | Gateway does not check ownership in FR6 | Gateway checks car before issuing job token | Defence in depth |![alt text](image.png)
 | SHA-256 manifest for carreport (T6) | Not implemented | Optional supply chain part skipped; residual risk |
+| `auth-db` and `car-db` networks (TB5) | Removed | SQLite runs as a file in each service's volume, not a separate database container, so the networks had a single member and carried no traffic |
