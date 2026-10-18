@@ -30,23 +30,34 @@ docker context inspect --format '{{.Endpoints.docker.Host}}'
 
 It prints something like `unix:///Users/<you>/.docker/run/docker.sock`. Mount that path into the container at `/var/run/docker.sock`. The command below uses `$HOME/.docker/run/docker.sock`, which is the default.
 
+### JENKINS_HOME must be a shared path with the same value on host and container
+
+The pipeline runs `docker` commands that bind-mount the workspace (for example `-v $WORKSPACE:/src`) and relative paths from `docker compose` (for example `./secrets`). These mounts are interpreted by the **host** Docker daemon (Docker Desktop), not by the Jenkins container. So the workspace must sit at a path that exists, with the same spelling, on the host.
+
+If Jenkins stores its workspace at the image default `/var/jenkins_home/workspace/...`, that path does not exist on the host, and the host daemon mounts an empty directory. That is what caused build #1 to fail (`gitleaks: not a git repository`, `build_carreport.sh: Directory '/tmp/carreport' is not installable`).
+
+The fix: put `JENKINS_HOME` on a host directory bind-mounted at the **same path** inside the container. Here that is `$HOME/jenkins_home` (i.e. `/Users/<you>/jenkins_home`). `$HOME` is under `/Users`, which Docker Desktop shares by default, so no extra file-sharing setup is needed.
+
 ### Run the container
 
 ```bash
-docker volume create jenkins_home
+mkdir -p "$HOME/jenkins_home" && chmod 777 "$HOME/jenkins_home"
 ```
 
 ```bash
 docker run -d --name jenkins \
   -p 8080:8080 -p 50000:50000 \
-  -v jenkins_home:/var/jenkins_home \
+  -e JENKINS_HOME="$HOME/jenkins_home" \
+  -v "$HOME/jenkins_home:$HOME/jenkins_home" \
   -v "$HOME/.docker/run/docker.sock:/var/run/docker.sock" \
   car-valuation-jenkins:local
 ```
 
+The bind mount uses the identical path on both sides (`$HOME/jenkins_home:$HOME/jenkins_home`), and `JENKINS_HOME` points at it. The workspace then lives at `$HOME/jenkins_home/workspace/<job>` on both host and container, so nested `docker run -v` and compose bind mounts resolve to real host files. Do not use `--volumes-from`: it would not make the compose bind mounts work.
+
 No `--group-add` is needed: the entrypoint fixes socket access from inside the container. On Docker Desktop the mounted socket is owned by `root:root` (mode 660), so the entrypoint adds `jenkins` to the `root` group; on a daemon where the socket has a non-zero group, it creates a matching `dockerhost` group instead.
 
-### Verify Docker works inside the container
+### Verify Docker and path sharing work inside the container
 
 ```bash
 docker exec jenkins docker ps
@@ -56,17 +67,25 @@ docker exec jenkins docker ps
 docker exec jenkins docker compose version
 ```
 
-The first lists running containers (you will see `jenkins` itself); the second prints `Docker Compose version v2.29.7`. Both were verified working with this setup.
+Confirm a nested bind mount sees the same host path (this is the thing that was broken):
+
+```bash
+docker exec jenkins bash -c 'd="$JENKINS_HOME/workspace/mounttest"; mkdir -p "$d"; echo ok > "$d/proof.txt"; docker run --rm -v "$d:/mnt" alpine:3.20 cat /mnt/proof.txt; rm -rf "$d"'
+```
+
+The `docker ps` lists running containers (you will see `jenkins` itself); `docker compose version` prints `Docker Compose version v2.29.7`; the mount test prints `ok`. All three were verified working with this setup.
 
 ### Finish first-run setup
 
 Get the admin password and open Jenkins:
 
 ```bash
-docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+docker exec jenkins cat "$HOME/jenkins_home/secrets/initialAdminPassword"
 ```
 
 Open http://localhost:8080, paste the password, install the suggested plugins, and create the admin user. Make sure the **Pipeline**, **Git**, and **JUnit** plugins are installed (the suggested set includes them).
+
+Because `JENKINS_HOME` moved to `$HOME/jenkins_home`, this is a fresh Jenkins home. Redo the one-time UI setup described below (the `github-token` credential and the `car-valuation` multibranch job).
 
 ## 2. Connect your private GitHub repository
 
