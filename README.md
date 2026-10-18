@@ -22,11 +22,31 @@ The full design (scope, architecture, assets, access control, threat model and l
 ## Requirements
 
 - Docker with Docker Compose
-- Python 3.12 (for running tests locally)
+- OpenSSL (for generating keys and seed passwords)
+
+All Python code, including tests and dependency locking, runs in `python:3.12-slim` containers.
 
 ## Commands
 
-> Skeleton only. Commands marked TODO are added in later tickets.
+> Commands marked TODO are added in later tickets.
+
+### Secrets
+
+Generate the RS256 key pair and random seed passwords in `secrets/` (git-ignored). Existing files are kept:
+
+```bash
+./scripts/generate_secrets.sh
+```
+
+The files are passed to the containers as Docker secrets. `auth-gateway` gets the key pair, and only the seed job gets the seed passwords.
+
+### Dependencies
+
+Each service pins its dependencies with hashes in `requirements.txt` (and `requirements-dev.txt` for tests), generated from `requirements.in`. Images install them with `pip install --require-hashes --only-binary=:all:`. To update the lock files after changing a `requirements.in`:
+
+```bash
+./scripts/lock_dependencies.sh auth-gateway
+```
 
 ### Build
 
@@ -46,7 +66,11 @@ TODO: check the wheel's SHA-256 hash against the approved manifest.
 
 ### Seed
 
-TODO: create the seeded accounts `alice`, `bob` (seller) and `dealer` (dealer).
+Create the accounts `alice`, `bob` (seller) and `dealer` (dealer) with bcrypt-hashed passwords from `secrets/seed_users.json`:
+
+```bash
+docker compose --profile seed run --rm auth-seed
+```
 
 ### Run
 
@@ -56,10 +80,22 @@ docker compose up
 
 The gateway is published on `http://localhost:8000`. No other service is exposed.
 
-### Test
+Log in and call a protected endpoint:
 
 ```bash
-python -m pytest
+curl -s -X POST localhost:8000/login -H 'Content-Type: application/json' -d '{"username": "alice", "password": "<password from secrets/seed_users.json>"}'
+```
+
+```bash
+curl -s localhost:8000/me -H 'Authorization: Bearer <access_token>'
+```
+
+### Test
+
+Run the `auth-gateway` tests in a container without network access:
+
+```bash
+docker compose --profile test run --rm auth-gateway-test
 ```
 
 TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, section 6).
@@ -68,4 +104,10 @@ TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, secti
 
 ```bash
 docker compose down
+```
+
+Remove the `auth-data` volume as well for a fresh environment:
+
+```bash
+docker compose down -v
 ```

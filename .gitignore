@@ -8,3 +8,4 @@ __pycache__/
 report-service/wheels/
 build/
 *.egg-info/
+secrets/

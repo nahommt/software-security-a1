@@ -1,12 +1,59 @@
 services:
   auth-gateway:
-    build: ./auth-gateway
+    build:
+      context: ./auth-gateway
+      target: runtime
     ports:
       - "8000:8000"
     networks:
       - public
       - internal
       - auth-db
+    secrets:
+      - jwt_private_key
+      - jwt_public_key
+    volumes:
+      - auth-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  auth-seed:
+    build:
+      context: ./auth-gateway
+      target: runtime
+    profiles:
+      - seed
+    command: ["python", "-m", "app.seed"]
+    network_mode: none
+    secrets:
+      - seed_users
+    volumes:
+      - auth-data:/data
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  auth-gateway-test:
+    build:
+      context: ./auth-gateway
+      target: test
+    profiles:
+      - test
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   car-service:
     build: ./car-service
@@ -27,3 +74,14 @@ networks:
     internal: true
   car-db:
     internal: true
+
+volumes:
+  auth-data:
+
+secrets:
+  jwt_private_key:
+    file: ./secrets/jwt_private.pem
+  jwt_public_key:
+    file: ./secrets/jwt_public.pem
+  seed_users:
+    file: ./secrets/seed_users.json
