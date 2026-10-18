@@ -132,6 +132,11 @@ def create_app(settings=None):
     @app.get("/cars/{car_id}", response_model=Car)
     @requires(CARS_READ, roles=[SELLER, DEALER], job=True)
     def get_car(car_id: CarId, principal=Depends(current_principal)):
+        if principal.role == SELLER:
+            car = store.get_car(car_id)
+            if car is None:
+                raise not_found()
+            return car
         return authorized_car(principal, car_id)
 
     @app.post("/cars/{car_id}/images", response_model=ImageOut, status_code=status.HTTP_201_CREATED)

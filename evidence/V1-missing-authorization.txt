@@ -1,0 +1,49 @@
+V1 - Missing Authorization (CWE-862) on car-service GET /cars/{car_id}
+Date: 2026-10-18T16:54:01Z
+Commit: 9d62f84 + uncommitted change in car-service/app/main.py (get_car skips the ownership check for sellers)
+Environment: docker compose, fresh seed (./scripts/seed.sh). Car 1 is owned by alice, car 2 by bob.
+
+$ python3 cli/carcli.py login alice
+Logged in as alice. Token expires in 15 minutes.
+
+$ python3 cli/carcli.py whoami
+{
+  "username": "alice",
+  "role": "seller"
+}
+
+$ python3 cli/carcli.py cars list
+[
+  {
+    "id": 1,
+    "owner": "alice",
+    "make": "Volvo",
+    "model": "V70",
+    "year": 2015,
+    "mileage": 120000,
+    "description": "Synthetic seed car for alice.",
+    "images": [
+      "7d9252d08efb5781ac30ca1b3e44986b"
+    ]
+  }
+]
+
+$ python3 cli/carcli.py cars show 2
+{
+  "id": 2,
+  "owner": "bob",
+  "make": "Audi",
+  "model": "A4",
+  "year": 2018,
+  "mileage": 90000,
+  "description": "Synthetic seed car for bob.",
+  "images": [
+    "77fa5f833a0e5c109580d5016165061c"
+  ]
+}
+
+$ python3 cli/carcli.py valuations list 2
+HTTP 404: Not found
+
+Result: alice (seller) receives bob's car 2 including owner, description and image id.
+cars list and valuations list still enforce ownership, so only GET /cars/{car_id} is affected.
