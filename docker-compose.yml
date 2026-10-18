@@ -90,9 +90,37 @@ services:
       - no-new-privileges:true
 
   report-service:
-    build: ./report-service
+    build:
+      context: ./report-service
+      target: runtime
+    environment:
+      CAR_SERVICE_URL: http://car-service:8000
     networks:
       - internal
+    secrets:
+      - jwt_public_key
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  report-service-test:
+    build:
+      context: ./report-service
+      target: test
+    profiles:
+      - test
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   public:

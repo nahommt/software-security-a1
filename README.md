@@ -52,6 +52,10 @@ Each service pins its dependencies with hashes in `requirements.txt` (and `requi
 ./scripts/lock_dependencies.sh car-service
 ```
 
+```bash
+./scripts/lock_dependencies.sh report-service
+```
+
 ### Build
 
 Build the `carreport` wheel first. The script builds it in a `python:3.12-slim` container and writes it to `report-service/wheels/`:
@@ -60,7 +64,7 @@ Build the `carreport` wheel first. The script builds it in a `python:3.12-slim` 
 ./scripts/build_carreport.sh
 ```
 
-Then build the images. `report-service` installs `carreport` with pip from the local wheel only (`--no-index`), as declared in `report-service/requirements.txt`:
+Then build the images. `report-service` installs its PyPI dependencies from `requirements.txt` with hashes, and installs `carreport` with pip from the local wheel only (`--no-index --no-deps`), as declared in `report-service/requirements-carreport.txt`:
 
 ```bash
 docker compose build
@@ -82,7 +86,7 @@ docker compose --profile seed run --rm auth-seed
 docker compose up
 ```
 
-The gateway is published on `http://localhost:8000`. No other service is exposed. `car-service` is only reachable on the `internal` network and accepts only service tokens and job tokens with `aud=car-service`.
+The gateway is published on `http://localhost:8000`. No other service is exposed. `car-service` is only reachable on the `internal` network and accepts only service tokens and job tokens with `aud=car-service`. `report-service` is only on the `internal` network, has no database and no private key, and accepts `POST /jobs` with a service token (`aud=report-service`, scope `jobs:create`) and a job token in the body.
 
 Log in and call a protected endpoint:
 
@@ -104,6 +108,10 @@ docker compose --profile test run --rm auth-gateway-test
 
 ```bash
 docker compose --profile test run --rm car-service-test
+```
+
+```bash
+docker compose --profile test run --rm report-service-test
 ```
 
 TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, section 6).
