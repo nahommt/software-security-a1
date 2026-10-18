@@ -1,5 +1,4 @@
 import json
-import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -168,11 +167,10 @@ def create_app(settings=None, login_limiter=None, car_transport=None, report_tra
         )
         return relay(response)
 
-    @app.get("/cars/{car_id}/images/{image_id:path}")
+    @app.get("/cars/{car_id}/images/{image_id}")
     @allow(SELLER, DEALER)
-    def get_image(car_id: CarId, image_id: str, principal=Depends(current_principal)):
-        quoted = urllib.parse.quote(image_id, safe="")
-        path = f"/cars/{car_id}/images/{quoted}"
+    def get_image(car_id: CarId, image_id: ImageId, principal=Depends(current_principal)):
+        path = f"/cars/{car_id}/images/{image_id}"
         return relay(car_service.request("GET", path, car_token(principal, "cars:read")))
 
     @app.post("/cars/{car_id}/valuations")
@@ -198,6 +196,9 @@ def create_app(settings=None, login_limiter=None, car_transport=None, report_tra
     @app.post("/cars/{car_id}/reports")
     @allow(SELLER)
     def request_report(car_id: CarId, principal=Depends(current_principal)):
+        check = car_service.request("GET", f"/cars/{car_id}", car_token(principal, "cars:read"))
+        if check.status_code != status.HTTP_200_OK:
+            return relay(check)
         job_token = tokens.issue_job_token(principal.username, car_id, uuid.uuid4().hex, JOB_SCOPES)
         service_token = tokens.issue_service_token(principal, REPORT_SERVICE_AUDIENCE, ["jobs:create"])
         return relay(

@@ -39,3 +39,32 @@ $ python3 cli/carcli.py reports show 1
 HTTP 404: Not found
 GET /reports/{id} and GET /cars/{id}/reports still enforce the SELLER ownership
 check, which was outside the V4 scope (only the JOB-token check was removed).
+
+================================================================================
+After fix (SKOLE-29)
+Date: 2026-10-18T21:28:36Z
+Commit base: 8502a64 + uncommitted fix in auth-gateway/app/main.py and car-service/app/authz.py
+
+Both ownership checks in the FR6 flow are restored:
+  - gateway POST /cars/{car_id}/reports does GET /cars/{car_id} with the seller's
+    service token and only issues the job token if that returns 200.
+  - car-service can_access_car for a JOB requires car_id to match AND car.owner == sub.
+
+Unit tests: the three V4 tests pass again
+  - car-service  tests/test_job_access.py::test_job_bound_to_car_not_owned_by_subject_denied
+  - auth-gateway tests/test_forwarding.py::test_report_request_checks_car_then_runs_job
+  - auth-gateway tests/test_forwarding.py::test_report_request_for_foreign_car_stops_before_job
+
+Same exploit as above, now against the fixed services (fresh seed):
+
+$ docker compose exec car-service sqlite3 /data/car.db "SELECT count(*) FROM reports"
+reports after fresh seed: 0
+
+$ python3 cli/carcli.py reports request 2    # alice, bob's car 2
+HTTP 404: Not found
+
+$ docker compose exec car-service sqlite3 /data/car.db "SELECT count(*) FROM reports"
+reports after blocked exploit: 0
+
+Result: alice is denied (404) and no report is generated for bob's car. The
+composition hole is closed: both services now enforce ownership in the FR6 flow.

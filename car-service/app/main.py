@@ -132,11 +132,6 @@ def create_app(settings=None):
     @app.get("/cars/{car_id}", response_model=Car)
     @requires(CARS_READ, roles=[SELLER, DEALER], job=True)
     def get_car(car_id: CarId, principal=Depends(current_principal)):
-        if principal.role == SELLER:
-            car = store.get_car(car_id)
-            if car is None:
-                raise not_found()
-            return car
         return authorized_car(principal, car_id)
 
     @app.post("/cars/{car_id}/images", response_model=ImageOut, status_code=status.HTTP_201_CREATED)
@@ -162,21 +157,22 @@ def create_app(settings=None):
         store.add_image(image_id, car_id, content_type)
         return ImageOut(id=image_id)
 
-    @app.get("/cars/{car_id}/images/{image_id:path}")
+    @app.get("/cars/{car_id}/images/{image_id}")
     @requires(CARS_READ, roles=[SELLER, DEALER], job=True)
     def get_image(
         car_id: CarId,
-        image_id: str,
+        image_id: Annotated[str, Path(pattern=IMAGE_ID_PATTERN)],
         principal=Depends(current_principal),
     ):
         authorized_car(principal, car_id)
         image = store.get_image(car_id, image_id)
-        content_type = image["content_type"] if image else "application/octet-stream"
-        with open(os.path.join(settings.images_dir, image_id), "rb") as f:
+        if image is None:
+            raise not_found()
+        with open(os.path.join(settings.images_dir, image["id"]), "rb") as f:
             content = f.read()
         return Response(
             content=content,
-            media_type=content_type,
+            media_type=image["content_type"],
             headers={"X-Content-Type-Options": "nosniff"},
         )
 
