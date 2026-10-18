@@ -5,10 +5,16 @@ services:
       target: runtime
     ports:
       - "8000:8000"
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "172.30.10.10", "--port", "8000"]
+    environment:
+      CAR_SERVICE_URL: http://car-service:8000
+      REPORT_SERVICE_URL: http://report-service:8000
     networks:
-      - public
-      - internal
-      - auth-db
+      public:
+        ipv4_address: 172.30.10.10
+      gateway-car:
+      gateway-report:
+      auth-db:
     secrets:
       - jwt_private_key
       - jwt_public_key
@@ -60,7 +66,8 @@ services:
       context: ./car-service
       target: runtime
     networks:
-      - internal
+      - gateway-car
+      - report-car
       - car-db
     secrets:
       - jwt_public_key
@@ -109,10 +116,13 @@ services:
     build:
       context: ./report-service
       target: runtime
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "172.30.20.20", "--port", "8000"]
     environment:
       CAR_SERVICE_URL: http://car-service:8000
     networks:
-      - internal
+      gateway-report:
+        ipv4_address: 172.30.20.20
+      report-car:
     secrets:
       - jwt_public_key
     read_only: true
@@ -140,7 +150,17 @@ services:
 
 networks:
   public:
-  internal:
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+  gateway-car:
+    internal: true
+  gateway-report:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.20.0/24
+  report-car:
     internal: true
   auth-db:
     internal: true

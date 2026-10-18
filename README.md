@@ -16,6 +16,7 @@ The full design (scope, architecture, assets, access control, threat model and l
 | `car-service/` | Stores cars, images, valuations and reports; enforces ownership |
 | `report-service/` | Generates one report per job (stateless) |
 | `packages/carreport/` | Helper package (wheel) that formats reports |
+| `cli/` | Command-line client (`carcli.py`, standard library only) |
 | `scripts/` | Helper scripts (seed, checks) |
 | `docs/` | Lifecycle plan and diagrams |
 
@@ -23,12 +24,11 @@ The full design (scope, architecture, assets, access control, threat model and l
 
 - Docker with Docker Compose
 - OpenSSL (for generating keys and seed passwords)
+- Python 3.9 or newer on the host, only for the CLI client
 
-All Python code, including tests and dependency locking, runs in `python:3.12-slim` containers.
+All service code, tests and dependency locking run in `python:3.12-slim` containers.
 
 ## Commands
-
-> Commands marked TODO are added in later tickets.
 
 ### Secrets
 
@@ -88,20 +88,116 @@ The script generates `secrets/` if it is missing, then runs two seed jobs withou
 ### Run
 
 ```bash
-docker compose up
+docker compose up -d
 ```
 
-The gateway is published on `http://localhost:8000`. No other service is exposed. `car-service` is only reachable on the `internal` network and accepts only service tokens and job tokens with `aud=car-service`. `report-service` is only on the `internal` network, has no database and no private key, and accepts `POST /jobs` with a service token (`aud=report-service`, scope `jobs:create`) and a job token in the body.
+The gateway is published on `http://localhost:8000`. No other service is exposed.
 
-Log in and call a protected endpoint:
+| Network | Members | Purpose |
+|---|---|---|
+| `public` | auth-gateway | Internet to gateway (TB1) |
+| `gateway-car` | auth-gateway, car-service | Gateway calls car-service (TB2) |
+| `gateway-report` | auth-gateway, report-service | Gateway calls report-service (TB2) |
+| `report-car` | report-service, car-service | report-service calls car-service (TB3) |
+| `auth-db` | auth-gateway | Gateway data (TB5) |
+| `car-db` | car-service | Car data (TB5) |
+
+All networks except `public` are internal (no internet access). `auth-gateway` listens only on its `public` address (172.30.10.10) and `report-service` only on its `gateway-report` address (172.30.20.20). As a result, report-service can reach car-service but not the gateway, and car-service cannot call either of them.
+
+`POST /login` is rate limited: at most 10 attempts per client IP per minute and 5 failed attempts per username per 5 minutes. Further attempts get `429` with `Retry-After`.
+
+### CLI client
+
+The CLI talks only to the gateway (`--url` or `CARCLI_URL`, default `http://localhost:8000`). It stores the access token in `~/.config/carcli/token` with mode 600. Passwords are in `secrets/seed_users.json`.
+
+Log in (prompts for the password) and show the current user:
 
 ```bash
-curl -s -X POST localhost:8000/login -H 'Content-Type: application/json' -d '{"username": "alice", "password": "<password from secrets/seed_users.json>"}'
+python3 cli/carcli.py login alice
 ```
 
 ```bash
-curl -s localhost:8000/me -H 'Authorization: Bearer <access_token>'
+python3 cli/carcli.py whoami
 ```
+
+Seller (FR2, FR3, FR6):
+
+```bash
+python3 cli/carcli.py cars create --make Toyota --model Corolla --year 2019 --mileage 50000 --description "Synthetic car"
+```
+
+```bash
+python3 cli/carcli.py images upload 3 car.png
+```
+
+```bash
+python3 cli/carcli.py cars list --make Toyota
+```
+
+```bash
+python3 cli/carcli.py cars show 3
+```
+
+```bash
+python3 cli/carcli.py images download 3 <image_id> out.png
+```
+
+```bash
+python3 cli/carcli.py valuations list 3
+```
+
+```bash
+python3 cli/carcli.py reports request 3
+```
+
+```bash
+python3 cli/carcli.py reports list 3
+```
+
+```bash
+python3 cli/carcli.py reports show <report_id>
+```
+
+Dealer (FR4, FR5):
+
+```bash
+python3 cli/carcli.py login dealer
+```
+
+```bash
+python3 cli/carcli.py cars list
+```
+
+```bash
+python3 cli/carcli.py valuations create 3 --price 120000 --comment "Fair price"
+```
+
+Log out:
+
+```bash
+python3 cli/carcli.py logout
+```
+
+Run `python3 cli/carcli.py --help` or `python3 cli/carcli.py <command> --help` for all options.
+
+### API
+
+| Gateway endpoint | Roles | Forwarded to | Token sent upstream |
+|---|---|---|---|
+| `POST /login` | public | – | – |
+| `GET /me` | seller, dealer | – | – |
+| `POST /cars` | seller | car-service `POST /cars` | service token, `cars:create` |
+| `GET /cars?make=` | seller, dealer | car-service `GET /cars` | service token, `cars:read` |
+| `GET /cars/{car_id}` | seller, dealer | car-service `GET /cars/{car_id}` | service token, `cars:read` |
+| `POST /cars/{car_id}/images` | seller | car-service `POST /cars/{car_id}/images` | service token, `cars:create` |
+| `GET /cars/{car_id}/images/{image_id}` | seller, dealer | car-service `GET /cars/{car_id}/images/{image_id}` | service token, `cars:read` |
+| `POST /cars/{car_id}/valuations` | dealer | car-service `POST /cars/{car_id}/valuations` | service token, `valuations:create` |
+| `GET /cars/{car_id}/valuations` | seller, dealer | car-service `GET /cars/{car_id}/valuations` | service token, `valuations:read` |
+| `POST /cars/{car_id}/reports` | seller | car-service `GET /cars/{car_id}`, then report-service `POST /jobs` | service token `cars:read`; service token `jobs:create` + job token |
+| `GET /cars/{car_id}/reports` | seller | car-service `GET /cars/{car_id}/reports` | service token, `reports:read` |
+| `GET /reports/{report_id}` | seller | car-service `GET /reports/{report_id}` | service token, `reports:read` |
+
+report-service calls car-service `GET /cars/{car_id}`, `GET /cars/{car_id}/valuations` and `POST /cars/{car_id}/reports` with the job token only.
 
 ### Test
 
@@ -127,7 +223,7 @@ TODO: functional and authorization tests for T1–T16 (see `docs/plan.md`, secti
 docker compose down
 ```
 
-Remove the `auth-data` volume as well for a fresh environment:
+Remove the `auth-data` and `car-data` volumes as well for a fresh environment (this deletes all users and cars until you seed again):
 
 ```bash
 docker compose down -v
