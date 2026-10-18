@@ -26,7 +26,7 @@ pipeline {
 
         stage('Secret scan') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
                         docker run --rm -v "$WORKSPACE:/repo" ${GITLEAKS_IMAGE} \
                             detect --source=/repo \
@@ -38,25 +38,28 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh '''
-                    ./scripts/generate_secrets.sh
-                    ./scripts/build_carreport.sh
-                    docker compose build
-                    docker compose --profile test build
-                '''
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    sh '''
+                        ./scripts/generate_secrets.sh
+                        ./scripts/build_carreport.sh
+                        docker compose build
+                        docker compose --profile test build
+                    '''
+                }
             }
         }
 
         stage('SAST') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
                         docker run --rm -v "$WORKSPACE:/src" -w /src ${PY_IMAGE} sh -c '
                             pip install --quiet bandit=='"${BANDIT_VERSION}"' &&
                             for svc in '"${SERVICES}"'; do
-                                bandit -r "/src/$svc/app" -f json -o "/src/reports/bandit-$svc.json" || true
-                                bandit -r "/src/$svc/app" -f txt  -o "/src/reports/bandit-$svc.txt"  || true
-                            done
+                                bandit -r "/src/$svc/app" -f json -o "/src/reports/bandit-$svc.json" --exit-zero
+                                bandit -r "/src/$svc/app" -f txt  -o "/src/reports/bandit-$svc.txt"  --exit-zero
+                            done &&
+                            python3 /src/scripts/ci/gate_bandit.py /src/reports
                         '
                     '''
                 }
@@ -65,7 +68,7 @@ pipeline {
 
         stage('Dependency scan') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
                         docker run --rm -v "$WORKSPACE:/src" -w /src ${PY_IMAGE} sh -c '
                             pip install --quiet pip-audit=='"${PIP_AUDIT_VERSION}"' &&
@@ -75,7 +78,8 @@ pipeline {
                                     name="$svc-$(basename "$req" .txt)"
                                     pip-audit -r "$req" -f json -o "/src/reports/pip-audit-$name.json" || true
                                 done
-                            done
+                            done &&
+                            python3 /src/scripts/ci/gate_pip_audit.py /src/reports
                         '
                     '''
                 }
@@ -84,15 +88,17 @@ pipeline {
 
         stage('Tests') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
+                        fail=0
                         for svc in ${SERVICES}; do
                             docker run --rm --network none \
                                 -v "$WORKSPACE/reports:/reports" \
                                 "assignment1-${svc}-test:latest" \
                                 python -m pytest -q -p no:cacheprovider \
-                                --junitxml="/reports/junit-${svc}.xml" || true
+                                --junitxml="/reports/junit-${svc}.xml" || fail=1
                         done
+                        [ "$fail" -eq 0 ]
                     '''
                 }
             }
@@ -100,7 +106,7 @@ pipeline {
 
         stage('Integration') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
                         docker compose down -v || true
                         ./scripts/seed.sh
