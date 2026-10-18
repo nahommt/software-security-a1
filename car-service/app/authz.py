@@ -83,7 +83,7 @@ def current_principal(request: Request):
 
 def can_access_car(principal, car):
     if principal.kind == JOB:
-        return car["id"] == principal.car_id and car["owner"] == principal.subject
+        return car["id"] == principal.car_id
     if principal.role == DEALER:
         return True
     return principal.role == SELLER and car["owner"] == principal.subject
