@@ -5,3 +5,6 @@ __pycache__/
 *.key
 *.db
 .venv/
+report-service/wheels/
+build/
+*.egg-info/

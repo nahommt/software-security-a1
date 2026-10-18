@@ -30,11 +30,19 @@ The full design (scope, architecture, assets, access control, threat model and l
 
 ### Build
 
+Build the `carreport` wheel first. The script builds it in a `python:3.12-slim` container and writes it to `report-service/wheels/`:
+
+```bash
+./scripts/build_carreport.sh
+```
+
+Then build the images. `report-service` installs `carreport` with pip from the local wheel only (`--no-index`), as declared in `report-service/requirements.txt`:
+
 ```bash
 docker compose build
 ```
 
-TODO: build the `carreport` wheel and check its SHA-256 hash against the approved manifest.
+TODO: check the wheel's SHA-256 hash against the approved manifest.
 
 ### Seed
 
