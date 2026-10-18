@@ -1,0 +1,20 @@
+SKOLE-24 - build gate: adding an unlisted dependency is rejected
+Date: 2026-10-18T17:25:38Z
+Setup: copied car-service/requirements.txt and appended one unlisted package (requests==2.32.3) with no hash.
+
+$ pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.txt
+--- pip output (last lines) ---
+  Downloading starlette-1.8.0-py3-none-any.whl (79 kB)
+Collecting typing-extensions==4.16.0 (from -r requirements.txt (line 351))
+  Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Collecting typing-inspection==0.4.4 (from -r requirements.txt (line 362))
+  Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Collecting uvicorn==0.54.0 (from -r requirements.txt (line 368))
+  Downloading uvicorn-0.54.0-py3-none-any.whl (87 kB)
+Collecting requests==2.32.3 (from -r requirements.txt (line 373))
+  Downloading requests-2.32.3-py3-none-any.whl (64 kB)
+
+ERROR: Hashes are required in --require-hashes mode, but they are missing from some requirements. Here is a list of those requirements along with the hashes their downloaded archives actually had. Add lines like these to your requirements files to prevent tampering. (If you did not enable --require-hashes manually, note that it turns on automatically when any package has a hash.)
+    requests==2.32.3 --hash=sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6
+--- exit status ---
+pip exit code: 1
