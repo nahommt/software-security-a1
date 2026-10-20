@@ -201,6 +201,7 @@ Tooling: Python 3.12, FastAPI, PyJWT, bcrypt, sqlite3, httpx, pytest, Bandit, pi
 | `POST /reports` | `POST /cars/{car_id}/reports` | Reports belong to a car |
 | Body owner ignored (T5) | Body owner rejected with 422 | Stricter |
 | Token claims `sub`, `role` | Also `iss`, `iat`, `jti`, `token_use` | Prevent token-type confusion |
-| Gateway does not check ownership in FR6 | Gateway checks car before issuing job token | Defence in depth |![alt text](image.png)
+| Gateway does not check ownership in FR6 | Gateway checks car before issuing job token | Defence in depth |
+| T16 detected by SAST | Not detected by Bandit (SQL fragment in f-string has no SQL keyword) | Discovered when planting V3; authorization test is the gate |
 | SHA-256 manifest for carreport (T6) | Not implemented | Optional supply chain part skipped; residual risk |
 | `auth-db` and `car-db` networks (TB5) | Removed | SQLite runs as a file in each service's volume, not a separate database container, so the networks had a single member and carried no traffic |
