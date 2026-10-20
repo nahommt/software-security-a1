@@ -2,7 +2,7 @@
 
 **Application:** Car valuation service for a car dealership
 **Language:** Python
-**Status:** Requirements phase complete. Committed before any feature code.
+**Status:** Sections 1–10 are the plan committed before any feature code (commit `8e46fe9`). Section 2 has been updated to the final network and storage layout. All other deviations from the plan are listed in Section 11.
 
 This plan follows the chain:
 asset → threat → requirement/control → lifecycle activity → test/evidence → gate decision.
@@ -138,7 +138,7 @@ Binding: service = `aud`, resource = `sub` + `car_id`, action = `scope`, validit
 | T13 | E | TB1 | Seller calls dealer endpoint | A8 | Role + scope check | Impl | Seller cannot create valuation | Test |
 | T14 | E | TB4 | Package reaches a database | A7 | No DB network for report-service | Design | Report container cannot reach car-db | Test |
 | T15 | I | TB1 | Path traversal on images | A7 | Canonicalise + check path | Impl | `../` rejected | Test |
-| T16 detected by SAST | Not detected by Bandit (fragment f-string) | Discovered when planting V3 |
+| T16 | T | TB1 | SQL injection in filter | A7 | Parameterised queries | Impl | Payload returns own cars only; SAST | Build, Test |
 ---
 
 ## 7. Secure design principles
