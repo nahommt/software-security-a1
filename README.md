@@ -70,7 +70,7 @@ Then build the images. `report-service` installs its PyPI dependencies from `req
 docker compose build
 ```
 
-TODO: check the wheel's SHA-256 hash against the approved manifest.
+The carreport wheel's SHA-256 is not verified against an approved manifest. This optional supply-chain control was not implemented and is accepted as a residual risk (T6); see [docs/plan.md](docs/plan.md), Section 11.
 
 ### Seed
 
