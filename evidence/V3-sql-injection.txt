@@ -27,7 +27,7 @@ $ bandit -r car-service/app
 Result: alice (seller) receives bob's car 2, which the owner filter should have hidden.
 
 ================================================================================
-After fix (SKOLE-29)
+After fix
 Date: 2026-10-18T21:34:42Z
 Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
 

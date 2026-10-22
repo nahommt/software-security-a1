@@ -1,4 +1,4 @@
-SKOLE-24 - build gate: adding an unlisted dependency is rejected
+Build gate: adding an unlisted dependency is rejected
 Date: 2026-10-18T17:25:38Z
 Setup: copied car-service/requirements.txt and appended one unlisted package (requests==2.32.3) with no hash.
 

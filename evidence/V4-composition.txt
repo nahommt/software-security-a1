@@ -41,7 +41,7 @@ GET /reports/{id} and GET /cars/{id}/reports still enforce the SELLER ownership
 check, which was outside the V4 scope (only the JOB-token check was removed).
 
 ================================================================================
-After fix (SKOLE-29)
+After fix
 Date: 2026-10-18T21:28:36Z
 Commit base: 8502a64 + uncommitted fix in auth-gateway/app/main.py and car-service/app/authz.py
 

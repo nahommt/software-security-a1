@@ -1,6 +1,6 @@
 # Running Jenkins locally and connecting it to GitHub
 
-The pipeline is defined in the repository's [Jenkinsfile](../Jenkinsfile). It runs on every push and pull request and has these stages: Checkout, Secret scan (gitleaks), Build, SAST (bandit), Dependency scan (pip-audit), Tests, Integration (network isolation check). All reports are archived as build artifacts, also when a stage is unstable. There are no gate rules yet; failing scans mark the stage UNSTABLE but do not fail the build (that is SKOLE-28).
+The pipeline is defined in the repository's [Jenkinsfile](../Jenkinsfile). It runs on every push and pull request and has these stages: Checkout, Secret scan (gitleaks), Build, SAST (bandit), Dependency scan (pip-audit), Tests, Integration (network isolation check). All reports are archived as build artifacts, even when a stage fails. Hard gate rules are enforced: a gitleaks finding, a blocking bandit finding, any known dependency vulnerability, any failed test, a rejected dependency or carreport wheel, or a broken network isolation makes the build fail (red). The rules and their rationale are in [gate-policy.md](gate-policy.md).
 
 ## 1. Start Jenkins in Docker (macOS, Docker Desktop, Apple Silicon)
 
@@ -123,7 +123,7 @@ In the job view, pick a branch and click **Build Now**. Watch the stages in **St
 - **Artifacts**: the build page lists everything under `reports/` — `gitleaks.json`, `bandit-*.json`, `bandit-*.txt`, `pip-audit-*.json`, `junit-*.xml`, `integration-network.txt`.
 - **Test Result**: the JUnit XML is parsed and shown as a test trend.
 
-While the four planted vulnerabilities (V1–V4) are present, the Tests stage is UNSTABLE and the failing tests appear in the Test Result. The build still completes and archives all reports, because gate rules come in SKOLE-28.
+While any planted vulnerability is present, the Tests stage fails and the build is red, with the failing tests shown in the Test Result. Every stage still runs and all reports are archived, so one red build shows all findings at once.
 
 ## Notes
 

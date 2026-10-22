@@ -26,7 +26,7 @@ Note: ../../car.db returns 502 because /data/images/../../car.db does not exist;
 working payload is a single ../ (image store is one level below /data).
 
 ================================================================================
-After fix (SKOLE-29)
+After fix
 Date: 2026-10-18T21:34:42Z
 Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
 

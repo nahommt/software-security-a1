@@ -49,7 +49,7 @@ Result: alice (seller) receives bob's car 2 including owner, description and ima
 cars list and valuations list still enforce ownership, so only GET /cars/{car_id} is affected.
 
 ================================================================================
-After fix (SKOLE-29)
+After fix
 Date: 2026-10-18T21:34:42Z
 Commit base: e1e6f5d (fix committed; images rebuilt with --no-cache before this run)
 
